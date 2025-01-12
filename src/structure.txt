@@ -1,0 +1,30 @@
+src/
+├── agents/
+│   ├── __init__.py
+│   ├── triage_agent.py
+│   ├── specialist_agent.py
+│   ├── nurse_agent.py
+│   ├── pharmacist_agent.py
+│   ├── administrative_agent.py
+│   └── emergency_agent.py
+│
+├── core/
+│   ├── __init__.py
+│   ├── base_agent.py
+│   └── hospital_coordinator.py
+│
+├── utils/
+│   ├── __init__.py
+│   ├── constants.py
+│   └── helpers.py
+│
+├── models/
+│   ├── __init__.py
+│   ├── patient.py
+│   └── medical_record.py
+│
+├── config/
+│   ├── __init__.py
+│   └── settings.py
+│
+└── main.py 
