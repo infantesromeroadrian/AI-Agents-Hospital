@@ -1,0 +1,6 @@
+Metadata-Version: 2.2
+Name: hospital_system
+Version: 0.1
+Requires-Dist: groq
+Requires-Dist: python-dotenv
+Dynamic: requires-dist
