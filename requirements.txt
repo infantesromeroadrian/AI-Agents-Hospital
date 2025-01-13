@@ -1,16 +1,17 @@
-# API y LLM
+# Existentes
 groq==0.4.2
-
-# Framework web
 streamlit==1.32.2
-
-# Utilidades
 python-dotenv==1.0.1
 
-# Formateo y desarrollo
-black==24.2.0
-pylint==3.1.0
-pytest==8.1.1
+# Base de datos
+sqlalchemy==2.0.27
+alembic==1.13.1
+psycopg2-binary==2.9.9
 
-# Manejo de datos
-python-json-logger==2.0.7 
+# Logging
+structlog==24.1.0
+python-json-logger==2.0.7
+
+# RAG
+chromadb==0.4.22
+langchain==0.1.9 
