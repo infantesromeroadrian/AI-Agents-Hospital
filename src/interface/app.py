@@ -10,6 +10,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from src.core.hospital_coordinator import HospitalCoordinator
 from src.config.settings import GROQ_API_KEY
+from src.models.database import Patient, Case
+from src.utils.logger import setup_logger
+from src.utils.rag import MedicalRAG
+from src.utils.reports import ReportGenerator
+
+# Inicializar logger
+logger = setup_logger()
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -18,8 +25,20 @@ def initialize_session_state():
     if 'current_case' not in st.session_state:
         st.session_state.current_case = None
     if 'coordinator' not in st.session_state:
-        client = Groq(api_key=GROQ_API_KEY)
-        st.session_state.coordinator = HospitalCoordinator(client)
+        try:
+            # Verificar que tenemos el API key
+            if not GROQ_API_KEY:
+                raise ValueError("GROQ_API_KEY not found")
+            
+            print(f"Initializing coordinator with API key: {GROQ_API_KEY[:8]}...")  # Debug
+            st.session_state.coordinator = HospitalCoordinator(GROQ_API_KEY)
+            logger.info("Hospital Coordinator initialized successfully")
+        except Exception as e:
+            st.error(f"Error inicializando Hospital Coordinator: {str(e)}")
+            logger.error("Error initializing Hospital Coordinator", error=str(e))
+            raise e
+    if 'rag' not in st.session_state:
+        st.session_state.rag = MedicalRAG()
 
 def display_header():
     """Display the application header"""
@@ -127,28 +146,54 @@ def display_medical_response(response):
     except Exception as e:
         st.error(f"Error al mostrar la respuesta: {str(e)}")
 
+def patient_form():
+    with st.form("patient_info"):
+        st.write("Información del Paciente")
+        first_name = st.text_input("Nombre")
+        last_name = st.text_input("Apellidos")
+        date_of_birth = st.date_input("Fecha de Nacimiento")
+        medical_history = st.text_area("Antecedentes Médicos")
+        
+        submitted = st.form_submit_button("Guardar")
+        if submitted:
+            return {
+                "first_name": first_name,
+                "last_name": last_name,
+                "date_of_birth": date_of_birth,
+                "medical_history": medical_history
+            }
+    return None
+
 def main():
     initialize_session_state()
     display_header()
-
-    # Display chat history
     display_chat_history()
 
-    # Get user input
-    if prompt := st.chat_input("Describa sus síntomas..."):
-        # Add user message to chat history
+    if (patient_info := patient_form()):
+        logger.info("Patient info saved", patient=patient_info)
+
+    if (prompt := st.chat_input("Describa sus síntomas...")):
+        logger.info("New symptom input received", symptoms=prompt)
         st.session_state.chat_history.append({"role": "user", "content": prompt})
 
         try:
-            # Process the case
-            result = st.session_state.coordinator.process_case(prompt)
-
-            # Add assistant response to chat history
-            st.session_state.chat_history.append({"role": "assistant", "content": result})
-
-            # Rerun to update the display
-            st.rerun()
+            with st.spinner('Procesando su consulta...'):
+                print(f"Processing prompt: {prompt}")  # Debug
+                result = st.session_state.coordinator.process_case(prompt)
+                print(f"Got result: {result}")  # Debug
+                
+                if isinstance(result, dict) and "error" in result:
+                    st.error(f"Error: {result['error']}")
+                    logger.error("Error in LLM response", error=result['error'])
+                else:
+                    st.session_state.chat_history.append({"role": "assistant", "content": result})
+                    st.rerun()
+                    
         except Exception as e:
+            import traceback
+            print(f"Exception: {str(e)}")  # Debug
+            print(f"Traceback: {traceback.format_exc()}")  # Debug
+            logger.error("Error processing case", error=str(e))
             st.error(f"Error al procesar el caso: {str(e)}")
 
 if __name__ == "__main__":

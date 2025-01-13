@@ -1,47 +1,75 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict
 from datetime import datetime
 import json
+import requests
+from src.config.settings import MODEL_NAME
 
 class BaseAgent(ABC):
     """Base class for all hospital agents"""
     
-    def __init__(self, client):
-        self.client = client
-        self.system_prompt = self._get_system_prompt()
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "https://api.groq.com/openai/v1/chat/completions"
+        self.headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
     
     @abstractmethod
     def _get_system_prompt(self) -> str:
         """Return the system prompt for this agent"""
         pass
     
-    def _make_llm_call(self, prompt: str, temperature: float = 0.2) -> Dict:
-        """Make a call to the LLM"""
+    def _make_llm_call(self, prompt: str) -> Dict:
+        """Make API call to Groq"""
         try:
-            response = self.client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
+            data = {
+                "model": MODEL_NAME,
+                "messages": [
+                    {"role": "system", "content": self._get_system_prompt()},
                     {"role": "user", "content": prompt}
                 ],
-                model="llama-3.3-70b-versatile",
-                temperature=temperature,
-                max_tokens=1024,
-                response_format={"type": "json_object"}
+                "temperature": 0.2,
+                "max_tokens": 1024,
+                "response_format": {"type": "json_object"}
+            }
+            
+            print(f"Making API call with data: {data}")
+            
+            response = requests.post(
+                self.base_url,
+                headers=self.headers,
+                json=data,
+                timeout=60
             )
             
-            # Parse the JSON response
-            try:
-                return json.loads(response.choices[0].message.content)
-            except json.JSONDecodeError as e:
+            print(f"Response status: {response.status_code}")
+            print(f"Response text: {response.text}")
+            
+            if response.status_code != 200:
                 return {
-                    "error": "Error parsing JSON response",
-                    "raw_response": response.choices[0].message.content,
-                    "details": str(e),
+                    "error": f"API Error: {response.status_code} - {response.text}",
                     "timestamp": datetime.now().isoformat()
                 }
-                
+            
+            result = response.json()
+            content = result["choices"][0]["message"]["content"]
+            
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                print(f"JSON Decode Error. Raw content: {content}")
+                return {
+                    "error": "Invalid JSON response",
+                    "raw_response": content,
+                    "timestamp": datetime.now().isoformat()
+                }
+            
         except Exception as e:
+            error_msg = f"Error in LLM call: {str(e)}"
+            print(error_msg)
             return {
-                "error": f"Error in LLM call: {str(e)}",
+                "error": error_msg,
                 "timestamp": datetime.now().isoformat()
             } 
